@@ -1,0 +1,173 @@
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=utf-8">
+<meta name="description" content="Web interface for the MSE Exposure Time Calculator">
+<meta name="author" content="Nicolas FLAGEY">
+
+<title>MSE Exposure Time Calculator (ETC)</title>
+
+<link href="https://cdn.pydata.org/bokeh/release/bokeh-0.12.14.min.css" rel="stylesheet" type="text/css">
+<link href="https://cdn.pydata.org/bokeh/release/bokeh-widgets-0.12.14.min.css" rel="stylesheet" type="text/css">
+<link href="https://cdn.pydata.org/bokeh/release/bokeh-tables-0.12.14.min.css" rel="stylesheet" type="text/css">
+
+<script src="https://cdn.pydata.org/bokeh/release/bokeh-0.12.14.min.js"></script>
+<script src="https://cdn.pydata.org/bokeh/release/bokeh-widgets-0.12.14.min.js"></script>
+<script src="https://cdn.pydata.org/bokeh/release/bokeh-tables-0.12.14.min.js"></script>
+
+<script type="text/javascript" src="submit.js"></script>
+<script type="text/javascript" src="jquery_1_11_1.js"></script>
+
+</head>
+
+<body>
+
+
+<h1><a href="http://www.cfht.hawaii.edu/en/news/MSE-new/"><IMG border=0 SRC="mse_logo2.png" width=250px></a> Exposure Time Calculator (in development)</h1>
+
+<input type="hidden" name="sessionID" id="sessionID">
+<script type="text/javascript">
+document.getElementById("sessionID").value=Math.round(1e4*Math.random());
+</script>
+
+<table width="95%" border=1 id="main_table" style="position: relative;">
+
+  <tr>
+
+    <th colspan=5 style="text-align: center; background-color:#7B0091; color:white; padding: 1%"> Select spectrograph
+      <select name="spectro" id="spectro" >
+	<option selected value="LR"> LR </option>
+	<option value="MR"> MR </option>
+	<option value="HR"> HR </option>
+      </select>
+    </th>
+
+  </tr>
+
+  <tr>
+    <th style="text-align: center; background-color:#008EFF"> Source type </th>
+    <th style="text-align: center; background-color:#00FF54"> Magnitude </th>
+    <th style="text-align: center; background-color:#C3FF00"> Conditions </th>
+    <th style="text-align: center; background-color:#FF7700"> ITC mode </th>
+    <td colspan=1 rowspan=2 id="submit_color" border=0 bgcolor="#FF0000" style="text-align: center">
+      <input type="submit" name="submit" id="submit" value="Submit" onclick="submit();return false">
+    </td>
+  </tr>
+  
+  <!-- Observations descriptiom -->
+  <tr>
+    
+    <!-- Source definition -->
+    <td style="text-align: left; padding: 1%; background-color:#008EFF" >
+      <select name="src_type" id="src_type">
+	<option selected value="point"> Point source </option>
+	<option value="extended"      > Extended source </option>
+      </select>
+      <br><br>
+      Template<br>
+      <select name="template" id="template" >
+	<option value="o5v">O5V</option>
+	<option value="o9v">O9V</option>
+	<option value="b1v">B1V</option>
+	<option value="b2iv">B2IV</option>
+	<option value="b3v">B3V</option>
+	<option value="b8v">B8V</option>
+	<option value="b9iii">B9III</option>
+	<option value="b9v">B9V</option>
+	<option value="a0iii">A0III</option>
+	<option value="a0v">A0V</option>
+	<option value="a2v">A2V</option>
+	<option value="f0v">F0V</option>
+	<option value="g0i">G0I</option>
+	<option value="g2v">G2V</option>
+	<option value="g5iii">G5III</option>
+	<option value="k2v">K2V</option>
+	<option value="k7v">K7V</option>
+	<option value="m2v">M2V</option>
+	<option value="WD">White Dwarf</option>
+    <option value="LBG_EW_le_0">LBG (EW < 0)</option>
+    <option value="LBG_EW_0_20">LBG (0 < EW < 20)</option>
+    <option value="LBG_EW_ge_20">LBG (EW > 20)</option>
+	<option value="qso1">QSO-1</option>
+	<option value="qso2">QSO-2</option>
+	<option value="elliptical">Elliptical galaxy</option>
+	<option value="spiral_Sc">Spiral Sc Galaxy</option>
+	<option value="HII">HII region</option>
+	<option value="PN">Planetary nebula</option>
+	<option selected value="flat">Constant magAB</option>
+      </select><br><br>
+      
+      Redshift <br> <input name="redshift" id="redshift" value="0" size="4" style="text-align: right" ><br><br>
+      
+    </td>
+
+    <!-- Magnitude -->
+    <td style="text-align: left; padding: 1%; background-color:#00FF54" >
+      <input type="text" name="magnitude" id="magnitude" value="24.0" size="4" style="text-align: right" > AB mag(/arcsec2)<br><br>
+      
+      <select name="band" id="band" >
+	<option value="u">u</option>
+	<option selected value="g">g</option>
+	<option value="r">r</option>
+	<option value="i">i</option>
+	<option value="z">z</option>
+	<option value="Y">Y</option>
+	<option value="J">J</option>
+      </select> band<br><br>
+    </td>
+    
+    <!-- Observing conditions -->
+    <td style="text-align: left; padding: 1%; background-color:#C3FF00" >
+      <!--Seeing-->
+      Seeing <input type="text" name="seeing" id="seeing" value=0.5 size="4" style="text-align: right" > arcsec <br><br>
+      <!--Airmass-->
+      Airmass
+      <select name="airmass" id="airmass">
+	<option value="1.0">1.0</option>
+	<option selected value="1.2">1.2</option>
+	<option value="1.5">1.5</option>
+      </select> <br> <br>
+      <!--Sky brightness-->
+      Sky brightness<br>
+      <select name="skymag" id="skymag">
+	<option value="21.3"> 21.3 </option>
+	<option selected value="20.7"> 20.7 </option>
+	<option value="20.2"> 20.2 </option>
+	<option value="19.5"> 19.5 </option>
+	<option value="18.0"> 18.0 </option>
+      </select> </br> AB mag/arcsec2<br>
+    </td>
+
+    <!-- Method -->
+    <td style="text-align: left; padding: 1%; background-color:#FF7700" >
+      <!--Mode-->
+      Mode<br>
+      <select name="ETC_mode" id="ETC_mode" style="text-align: center">
+	<option selected value="getSNR">Compute SNR</option>
+	<option value="getEtime">Compute Time</option>
+      </select>
+      <br><br>
+      <!--ETC mode input-->
+      Exposure Time <br> <input type="text" name="etime" id="etime" value=3600 size="4" style="text-align: right" > s <br><br>
+      SNR <br> <input type="text" name="snr" id="snr" value=5 size="4" style="text-align: right" > <br>
+    </td>
+    
+  </tr>
+</table>
+
+
+<br>
+<hr>
+<!--------------------------------------------------------------------------------------->
+<!--RESULTS-->
+<!--------------------------------------------------------------------------------------->
+<h2> Results </h2>
+
+<div name="results" id="results"></div>
+  
+<br>
+
+<div style="text-align: right; width: 100%" > Contact: <a href="mailto:flagey@cfht.hawaii.edu?Subject=MSE ITC" target="_top">Nicolas Flagey</a>, Pascal Fouque, Billy Mahoney, Kanoa Withington</div>
+
+
+</body>
+</html>

@@ -1,0 +1,15 @@
+/mse_alloc_dev/
+/mse_archive/
+/mse_drs/
+/mse_fibersize/
+/mse_injeff/
+/mse_itc_dev/
+/mse_misc/
+/mse_question/
+/mse_sched/
+/mse_skycalc/
+/plots/
+/venv/
+/gurobi.log
+/mse_plots.py
+/cfht_official/mse/SKY/
