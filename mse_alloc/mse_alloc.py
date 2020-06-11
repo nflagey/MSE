@@ -19,11 +19,11 @@ patrol = 1.24 * 7.77 / 106.7e-3  # in arcsec
 
 class MseFibAlloc:
 
-    def __init__(self, sessionID='1', spectro='HR', meth='one', iternum=5, allocfrac=95,
+    def __init__(self, file='targets.dat', spectro='HR', meth='one', iternum=5, allocfrac=95,
                  fovctr='auto', fovctrra='180', fovctrdec='180', doplot=False, dither=False):
 
-        # SessionID
-        self.sessionID = sessionID
+        # Input file
+        self.file = file
 
         # Making plots? (very time consuming)
         self.doplot = doplot
@@ -68,8 +68,9 @@ class MseFibAlloc:
         self.run_optim()
 
     def create_tgt(self):
-        # Open file (need to define a format)
-        tgt = Table.read('tmp/' + self.sessionID + 'targets.dat', format='ascii')
+        # Open CSV file with Targets (input file should have the following columns:
+        # RAJ2000, DECJ2000, umag, gmag, rmag, imag, zmag, Jmag, Hmag, Nobsreq, Nrepeat, priority, surveypriority)
+        tgt = Table.read('TARGETS/' + self.file, format='csv')
 
         # Project targets coordinates onto field of view
         im = np.empty([360, 360])
@@ -89,16 +90,16 @@ class MseFibAlloc:
             hdr['CRVAL2'] = self.fovctrdec
         else:
             hdr['CRVAL1'] = np.mean(tgt['RAJ2000'])
-            hdr['CRVAL2'] = np.mean(tgt['DEJ2000'])
+            hdr['CRVAL2'] = np.mean(tgt['DECJ2000'])
         # Get pixel coordinates for all targets
         wcs0 = wcs.WCS(hdul[0])
-        xy = [wcs0.wcs_world2pix([[tgt['RAJ2000'][i], tgt['DEJ2000'][i]]], 1)
+        xy = [wcs0.wcs_world2pix([[tgt['RAJ2000'][i], tgt['DECJ2000'][i]]], 1)
               for i in range(len(tgt['RAJ2000']))]
         # Make those columns
         xpos = Column([xy[i][0][0] for i in range(len(xy))], name='xpos', unit='arcsec')
         ypos = Column([xy[i][0][1] for i in range(len(xy))], name='ypos', unit='arcsec')
         # Add an "OBSERVED" column
-        nobs = Column([0 for i in range(len(xy))], name='nobs')
+        nobs = Column([0 for i in range(len(xy))], name='nobsdone')
         # Add columns to table
         tgt.add_columns([xpos, ypos, nobs])
         # Store
@@ -184,15 +185,15 @@ class MseFibAlloc:
             # Run one allocation
             self.optim()
             # Compute fraction of targets observed so far
-            trackfrac = np.append(trackfrac, 1. * len(self.tgt_fov[self.tgt_fov['repeat'] == self.tgt_fov['nobs']])
+            trackfrac = np.append(trackfrac, 1. * len(self.tgt_fov[self.tgt_fov['Nrepeat'] == self.tgt_fov['nobsdone']])
                                   / len(self.tgt_fov))
             # Print how many targets are left
-            print(str(len(self.tgt_fov[self.tgt_fov['repeat'] != self.tgt_fov['nobs']])) + " targets left out of "
+            print(str(len(self.tgt_fov[self.tgt_fov['Nrepeat'] != self.tgt_fov['nobsdone']])) + " targets left out of "
                   + str(len(self.tgt_fov)) + " targets to observe </br>")
             # Increased number of iterations
             self.niter += 1
             # If all possible targets have been observed, then stop
-            if 1. * len(self.tgt_fov[self.tgt_fov['repeat'] == self.tgt_fov['nobs']]) == len(self.tgt_fov):
+            if 1. * len(self.tgt_fov[self.tgt_fov['Nrepeat'] == self.tgt_fov['nobsdone']]) == len(self.tgt_fov):
                 break
             # What is the computing method?
             if self.meth == "one":
@@ -223,7 +224,7 @@ class MseFibAlloc:
         nfib_fov = len(fib_fov)
 
         # Remove targets that cannot be reached by any fiber and fiber that cannot reach any fiber
-        sel_tgt_wip = (np.min(dist_fov, axis=1) != 666) & (self.tgt_fov['repeat'] != self.tgt_fov['nobs'])
+        sel_tgt_wip = (np.min(dist_fov, axis=1) != 666) & (self.tgt_fov['Nrepeat'] != self.tgt_fov['nobsdone'])
         # Apply selection for targets first otherwise filtering fibers won't work
         self.tgt_wip = self.tgt_fov[sel_tgt_wip]
 
@@ -343,11 +344,11 @@ class MseFibAlloc:
                 self.fib_wip['dist'][pairs[1][i]] = self.dist_wip[pairs[0][i], pairs[1][i]]  # store real distances
 
             # Add 1 to NOBS
-            self.tgt_wip['nobs'][pairs[0]] += 1
+            self.tgt_wip['nobsdone'][pairs[0]] += 1
             self.tgt_fov[sel_tgt_wip] = self.tgt_wip
 
             # Print fraction of targets observed so far
-            frac = 100. * len(self.tgt_fov[self.tgt_fov['repeat'] == self.tgt_fov['nobs']]) / len(self.tgt_fov)
+            frac = 100. * len(self.tgt_fov[self.tgt_fov['Nrepeat'] == self.tgt_fov['nobsdone']]) / len(self.tgt_fov)
             print('Allocation fraction so far: ' + '{:.1f}'.format(frac) + '%</br></br>')
 
             # Keep all allocated distances in memory
@@ -380,8 +381,8 @@ class MseFibAlloc:
         fig.x(self.tgt_fov['xpos'], self.tgt_fov['ypos'],
               color='black', line_width=2., legend='Targets not observed')
         # Targets observed
-        fig.x(self.tgt_fov[self.tgt_fov['repeat'] == self.tgt_fov['nobs']]['xpos'],
-              self.tgt_fov[self.tgt_fov['repeat'] == self.tgt_fov['nobs']]['ypos'],
+        fig.x(self.tgt_fov[self.tgt_fov['Nrepeat'] == self.tgt_fov['nobsdone']]['xpos'],
+              self.tgt_fov[self.tgt_fov['Nrepeat'] == self.tgt_fov['nobsdone']]['ypos'],
               color='greenyellow', line_width=2, legend='Targets observed')
 
         # Allocated targets
