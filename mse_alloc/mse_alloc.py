@@ -14,7 +14,7 @@ from bokeh.plotting import figure, save
 from astropy import wcs
 
 # Global variables
-patrol = 1.24 * 7.77 / 106.7e-3  # in arcsec
+patrol = 1.24 * 7.77 / 106.7e-3  # in arcsec (average plate scale)
 
 
 class MseFibAlloc:
