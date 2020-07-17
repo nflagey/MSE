@@ -329,7 +329,7 @@ class MseFibAlloc:
                     pairs_wip = np.asarray(np.where(test))
 
                     # Store current value
-                    all_energy = np.append(all_energy, energy_wip / magscale)
+                    all_energy = np.append(all_energy, energy_wip)
 
                     # Is it the lowest energy?
                     if energy_wip < energy:
