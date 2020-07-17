@@ -12,3 +12,7 @@
 /venv/
 /gurobi.log
 /mse_plots.py
+/mse_alloc/mse_cosmo_drs_test.py
+/mse_alloc/TARGETS/KiDS_DR3.0_180.0_-0.5_ugri_src.fits
+/mse_alloc/TARGETS/kids_dr4_171ra190_23.0r24.5.01Apr2020.fits
+/mse_alloc/TARGETS/KiDS_for_LBG.fits

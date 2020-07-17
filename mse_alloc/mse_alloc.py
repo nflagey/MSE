@@ -56,7 +56,7 @@ class MseFibAlloc:
         self.all_dist = {}  # dictionary with all distances for each iteration
         self.pairs = []
         self.trackfrac = []
-        self.kmax = 5
+        self.kmax = 10
 
         # Create targets
         self.create_tgt()
@@ -70,7 +70,7 @@ class MseFibAlloc:
     def create_tgt(self):
         # Open CSV file with Targets (input file should have the following columns:
         # RAJ2000, DECJ2000, umag, gmag, rmag, imag, zmag, Jmag, Hmag, Nobsreq, Nrepeat, priority, surveypriority)
-        tgt = Table.read('TARGETS/' + self.file, format='csv')
+        tgt = Table.read('TARGETS/' + self.file, format='csv')  # TODO: accept multiple input files
 
         # Project targets coordinates onto field of view
         im = np.empty([360, 360])
@@ -165,6 +165,8 @@ class MseFibAlloc:
         # -- targets
         sel_tgt_fov = np.min(self.dist, axis=1) != 666
         self.tgt_fov = self.tgt_in[sel_tgt_fov]
+        # add "FoV" column (True/False) to check results
+        self.tgt_in.add_column(Column(sel_tgt_fov, dtype=int), name="fov")
         # -- fibers
         sel_fib_fov = np.min(self.dist, axis=0) != 666
         self.fib_fov = self.fib_in[sel_fib_fov]
@@ -291,7 +293,7 @@ class MseFibAlloc:
             test = [(0 < i) & (i < patrol) for i in state * dist_wip]
             pairs = list(np.where(test))
 
-            # Any two fibers paired to the same target?
+            # Any two fibers paired to the same target? (or two targets to the same fiber)
             short_per_long = np.sum(state, axis=1)
             more_than_one_short = list(filter(lambda x: x > 1, short_per_long))
             # --> yes, some doubles ...
@@ -319,13 +321,15 @@ class MseFibAlloc:
                         dist_wip2[nearest, :] = 666
                         dist_wip2[nearest, f] = sav
 
-                    # Compute energy for that state and store it
+                    # Compute energy for that state
                     energy_wip = np.sum(dist_wip2 * state_wip)
-                    all_energy = np.append(all_energy, energy_wip)
 
                     # Pairs
                     test = [(0 < i) & (i < patrol) for i in state_wip * dist_wip2]
                     pairs_wip = np.asarray(np.where(test))
+
+                    # Store current value
+                    all_energy = np.append(all_energy, energy_wip / magscale)
 
                     # Is it the lowest energy?
                     if energy_wip < energy:
@@ -333,6 +337,8 @@ class MseFibAlloc:
                         pairs = copy.deepcopy(pairs_wip)
 
                 # End loop on the simulation
+
+            
 
             # Final pairs
             npairs = len(pairs[0])
