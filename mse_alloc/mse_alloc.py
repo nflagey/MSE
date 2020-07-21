@@ -145,7 +145,7 @@ class MseFibAlloc:
         # Loop over fibers
         for f in range(nfib_in):
             # only select targets that are within a small box (+/-10mm) around the fiber
-            # since the patrol region is only 9.64mm radius
+            # since the patrol region is 9.64mm radius
             near = ((np.abs(self.tgt_in['xpos'] - self.fib_in['xpos'][f]) <= 10 / 106.7e-3)
                     & (np.abs(self.tgt_in['ypos'] - self.fib_in['ypos'][f]) <= 10 / 106.7e-3))
             targets_near = self.tgt_in[near]
@@ -328,17 +328,39 @@ class MseFibAlloc:
                     test = [(0 < i) & (i < patrol) for i in state_wip * dist_wip2]
                     pairs_wip = np.asarray(np.where(test))
 
+                    # Compute weight for wide/narrow range of magnitudes
+                    if ntgt_wip < nfib_wip:
+                        minumag, maxumag = np.nanmin(short['umag'][pairs_wip[0]]), np.nanmax(short['umag'][pairs_wip[0]])
+                        mingmag, maxgmag = np.nanmin(short['gmag'][pairs_wip[0]]), np.nanmax(short['gmag'][pairs_wip[0]])
+                        minrmag, maxrmag = np.nanmin(short['rmag'][pairs_wip[0]]), np.nanmax(short['rmag'][pairs_wip[0]])
+                        minimag, maximag = np.nanmin(short['imag'][pairs_wip[0]]), np.nanmax(short['imag'][pairs_wip[0]])
+                        minzmag, maxzmag = np.nanmin(short['zmag'][pairs_wip[0]]), np.nanmax(short['zmag'][pairs_wip[0]])
+                        minjmag, maxjmag = np.nanmin(short['Jmag'][pairs_wip[0]]), np.nanmax(short['Jmag'][pairs_wip[0]])
+                        minhmag, maxhmag = np.nanmin(short['Hmag'][pairs_wip[0]]), np.nanmax(short['Hmag'][pairs_wip[0]])
+                    else:
+                        minumag, maxumag = np.nanmin(long['umag'][pairs_wip[1]]), np.nanmax(long['umag'][pairs_wip[1]])
+                        mingmag, maxgmag = np.nanmin(long['gmag'][pairs_wip[1]]), np.nanmax(long['gmag'][pairs_wip[1]])
+                        minrmag, maxrmag = np.nanmin(long['rmag'][pairs_wip[1]]), np.nanmax(long['rmag'][pairs_wip[1]])
+                        minimag, maximag = np.nanmin(long['imag'][pairs_wip[1]]), np.nanmax(long['imag'][pairs_wip[1]])
+                        minzmag, maxzmag = np.nanmin(long['zmag'][pairs_wip[1]]), np.nanmax(long['zmag'][pairs_wip[1]])
+                        minjmag, maxjmag = np.nanmin(long['Jmag'][pairs_wip[1]]), np.nanmax(long['Jmag'][pairs_wip[1]])
+                        minhmag, maxhmag = np.nanmin(long['Hmag'][pairs_wip[1]]), np.nanmax(long['Hmag'][pairs_wip[1]])
+                    # Average of magnitude range over 7 bands (+ 1 to avoid getting 0)
+                    magscale = ((maxumag - minumag) + (maxgmag - mingmag) + (maxrmag - minrmag) + (maximag - minimag)
+                                + (maxzmag - minzmag) + (maxjmag - minjmag) + (maxhmag - minhmag)) / 7. + 1.
+
+                    print(magscale)
+
                     # Store current value
-                    all_energy = np.append(all_energy, energy_wip)
+                    all_energy = np.append(all_energy, energy_wip / magscale)
 
                     # Is it the lowest energy?
                     if energy_wip < energy:
+                        print("keeper", magscale)
                         energy = copy.deepcopy(energy_wip)
                         pairs = copy.deepcopy(pairs_wip)
 
                 # End loop on the simulation
-
-            
 
             # Final pairs
             npairs = len(pairs[0])

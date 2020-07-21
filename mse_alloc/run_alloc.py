@@ -4,7 +4,7 @@ from astropy.table import Table
 import numpy as np
 
 # Without dithering
-alloc_nodith = MseFibAlloc(file='cosmo_targets_large_old.csv',
+alloc_nodith = MseFibAlloc(file='cosmo_targets_large_new.csv',
                            doplot=False, meth='fixiter', iternum=1, dither=False, allocfrac=90, spectro='LR')
 
 # Look at results
