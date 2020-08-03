@@ -3,7 +3,7 @@ from mse_alloc_ga import MseFibAlloc
 
 alloc_nodith = MseFibAlloc(file='cosmo_targets_large_new.csv', doplot=False, meth='one', iternum=1, dither=False,
                            allocfrac=90, spectro='LR',
-                           init_size=4, mat_size=2, off_size=2, ngeneration=200, pmutation=2)
+                           init_size=20, mat_size=10, off_size=10, ngeneration=10, pmutation=5)
 alloc_nodith.ga_loop()
 
 # Mutation rate:

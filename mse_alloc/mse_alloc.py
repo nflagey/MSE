@@ -298,6 +298,7 @@ class MseFibAlloc:
             more_than_one_short = list(filter(lambda x: x > 1, short_per_long))
             # --> yes, some doubles ...
             if len(more_than_one_short) > 0:
+                print("Need to solve some conflicts ...")
 
                 # Set up initial energy and store, at least for tests
                 energy = 666. * nshort
