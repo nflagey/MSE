@@ -14,6 +14,10 @@ import time
 from scipy.spatial import cKDTree
 import random
 import matplotlib.pyplot as plt
+from numpy.random import default_rng
+
+# Random number generator
+rng = default_rng()
 
 # Global variables
 plate_scale = 106.7e-3  # microns per arcsec
@@ -26,11 +30,11 @@ score_none = 1.e6  # distance for unallocated fiber's score
 fitness_method = 'distance'  # 'alloc' for number of allocation, 'distance' for distance
 
 # GA parameters
-pop_size = 20  # size of population
+pop_size = 10  # size of population
 elite_pct = 20.  # percent of best parents to keep for next generation
 mating_pct = 50.  # percent of best parents allowed to mate
 mutation_pct = .5  # percent of genes that mutate after crossover
-max_generation = 50  # maximum number of new generations
+max_generation = 100  # maximum number of new generations
 max_time = 600  # maximum time for the whole process
 
 
@@ -50,11 +54,24 @@ class FiberToTargetAllocation(object):
         # Execute on init:
         self._chromosome = None
         self._fitness = None
+        self._fitness_clean = None
+        self._distances = None
+        self._priorities = None
 
     @property
     def chromosome(self):
         if getattr(self, '_chromosome', None) is None:
             chromosome = np.zeros(len(self.ind_tgt_near_poss), dtype=np.int32) - 1  # faster than list comprehension
+
+            # TODO: try to reproduce basic algorithm here
+            # pick up a random order
+            # go through the fibers
+            # pick the closest target (or shortest distance/priority)
+            # "nullify" that row and column from distance/ind_tgt_near_poss matrices
+            # continue until all possible are done
+            # order = np.random.choice(replace=False)
+
+
 
             if self.first_gen:
                 # allocate targets to their nearest fibers
@@ -67,7 +84,7 @@ class FiberToTargetAllocation(object):
                 # allocate targets that are the only ones a fiber can reach
                 chromosome[self.n_targets == 1] = self.ind_tgt_near_poss[self.n_targets == 1][0]
                 # chose randomly for the fibers that can reach more than one target
-                a = list(map(lambda x: random.choice(x), self.ind_tgt_near_poss[self.n_targets > 1]))
+                a = list(map(lambda x: rng.choice(x), self.ind_tgt_near_poss[self.n_targets > 1]))
                 chromosome[self.n_targets > 1] = a
 
             # Take care of duplicates: remove all but one fiber in those cases
@@ -79,9 +96,8 @@ class FiberToTargetAllocation(object):
                     ind_dup = np.ravel(np.argwhere(chromosome == u))
                     # put all to -1
                     chromosome[ind_dup] = -1
-                    # put one back to u
                     # randomly chose one to be back to u
-                    chromosome[np.random.choice(ind_dup)] = u
+                    chromosome[rng.choice(ind_dup)] = u
 
                     # all solutions below are slower:
                     # pick all but one with random.sample: 1400ms
@@ -101,7 +117,7 @@ class FiberToTargetAllocation(object):
 
     def mate(self, parent2):
         # Check all probabilities at once (0: mutate, 1: parent1, 2: parent2)
-        prob = np.random.choice([0, 1, 2], p=[mutation_pct/100, (100-mutation_pct)/200, (100-mutation_pct)/200],
+        prob = rng.choice([0, 1, 2], p=[mutation_pct/100, (100-mutation_pct)/200, (100-mutation_pct)/200],
                                 size=len(self.ind_tgt_near_poss))
         # Create a third chromosome all at once to store the mutated genes
         mutated = FiberToTargetAllocation(self.ind_tgt_near_poss, self.n_targets, self.distances_dok, self.targets)
@@ -116,38 +132,65 @@ class FiberToTargetAllocation(object):
     @property
     def fitness(self):
         if getattr(self, '_fitness', None) is None:
-            # 1. Get how many pairs have not been allocated
-            # self._fitness = np.count_nonzero(self.chromosome >= 0)
-            # this above works and lead to "quick" results
-
-            # 2. Let's try to use the distance instead
-            fitness = np.zeros(len(self.chromosome))
-            for i, c in enumerate(self.chromosome):  # i is the positioner index, c is the target index
-                if c == -1:
-                    fitness[i] = score_none
-                else:
-                    # DOK matrix is about twice as fast as the record array
-                    # get distance
-                    fitness[i] = self.distances_dok[(c, i)]
-                    # apply priority score
-                    fitness[i] /= (self.targets[c]['priority'] * self.targets[c]['surveypriority'])
-
-            # Account for range of magnitudes
-            # Get magnitudes of allocated targets
-            sel = self.chromosome[self.chromosome >= 0]
-            umags, gmags, rmags = self.targets['umag'][sel], self.targets['gmag'][sel], self.targets['rmag'][sel]
-            imags, zmags = self.targets['imag'][sel], self.targets['zmag'][sel]
-            jmags, hmags = self.targets['Jmag'][sel], self.targets['Hmag'][sel]
-            # Use standard deviations instead of max-min
-            umag_rms, gmag_rms, rmag_rms = np.nanstd(umags), np.nanstd(gmags), np.nanstd(rmags)
-            imag_rms, zmag_rms = np.nanstd(imags), np.nanstd(zmags)
-            jmag_rms, hmag_rms = np.nanstd(jmags), np.nanstd(hmags)
-            # Compute scaling
-            scale = (umag_rms + gmag_rms + rmag_rms + imag_rms + zmag_rms + jmag_rms + hmag_rms) / 7. + 1
-            # make sure we always maximize
-            self._fitness = -np.sum(fitness) * scale  # we thus want to get as close to 0 as possible here
+            self._fitness = self.compute_fitness()
 
         return self._fitness
+
+    @property
+    def fitness_clean(self):
+        if getattr(self, '_fitness_clean', None) is None:
+            self._fitness_clean = self.compute_fitness(score_none=0)
+
+        return self._fitness_clean
+
+    @property
+    def priorities(self):
+        if getattr(self, '_priorities', None) is None:
+            priorities = np.zeros(len(self.chromosome))
+            for i, c in enumerate(self.chromosome):  # i is the positioner index, c is the target index
+                if c != -1:
+                    priorities[i] = (self.targets[c]['priority'] * self.targets[c]['surveypriority'])
+            self._priorities = priorities
+        return self._priorities
+
+    @property
+    def distances(self):
+        if getattr(self, '_distances', None) is None:
+            distances = np.zeros(len(self.chromosome))
+            for i, c in enumerate(self.chromosome):  # i is the positioner index, c is the target index
+                if c != -1:
+                    distances[i] = self.distances_dok[(c, i)]
+            self._distances = distances
+        return self._distances
+
+    def compute_fitness(self, score_none=score_none):
+        fitness = np.zeros(len(self.chromosome))
+        for i, c in enumerate(self.chromosome):  # i is the positioner index, c is the target index
+            if c == -1:
+                fitness[i] = score_none
+            else:
+                # DOK matrix is about twice as fast as the record array
+                # get distance
+                fitness[i] = self.distances_dok[(c, i)]
+                # apply priority score
+                fitness[i] /= (self.targets[c]['priority'] * self.targets[c]['surveypriority'])
+
+        # Account for range of magnitudes
+        # Get magnitudes of allocated targets
+        sel = self.chromosome[self.chromosome >= 0]
+        umags, gmags, rmags = self.targets['umag'][sel], self.targets['gmag'][sel], self.targets['rmag'][sel]
+        imags, zmags = self.targets['imag'][sel], self.targets['zmag'][sel]
+        jmags, hmags = self.targets['Jmag'][sel], self.targets['Hmag'][sel]
+        # Use standard deviations instead of max-min
+        umag_rms, gmag_rms, rmag_rms = np.nanstd(umags), np.nanstd(gmags), np.nanstd(rmags)
+        imag_rms, zmag_rms = np.nanstd(imags), np.nanstd(zmags)
+        jmag_rms, hmag_rms = np.nanstd(jmags), np.nanstd(hmags)
+        # Compute scaling
+        scale = (umag_rms + gmag_rms + rmag_rms + imag_rms + zmag_rms + jmag_rms + hmag_rms) / 7. + 1
+        # make sure we always maximize
+        fitness = -np.sum(fitness) * scale  # we thus want to get as close to 0 as possible here
+
+        return fitness
 
 
 def create_targets(file):
@@ -245,7 +288,7 @@ def compute_distances(targets, poss):
     # TODO: what if the distance between a fiber and a target is exactly 0? Will the sparse matrix remove it?
     # TODO: better to keep all targets/fibers and pass them to the GA or only pass those that need to be optimized?
 
-    return dist_target_dok, ind_target_near_poss, ind_poss_near_target, n_target
+    return dist_target_dok, ind_target_near_poss, ind_poss_near_target, n_target, n_poss
 
 
 def main(file, t_start):
@@ -254,7 +297,7 @@ def main(file, t_start):
     # create PosS
     poss = create_poss(dither=False, spectro='LR')
     # compute distances, figure out reachable targets and available fibers
-    distances_dok, ind_tgt_near_poss, ind_poss_near_tgt, n_target = compute_distances(targets, poss)
+    distances_dok, ind_tgt_near_poss, ind_poss_near_tgt, n_target, n_poss = compute_distances(targets, poss)
     # distances_arr = distances_dok.toarray()
     distances_coo = distances_dok.tocoo()
     # distances_arr[distances_arr == 0] = score_none
@@ -269,8 +312,7 @@ def main(file, t_start):
     # print(len(doubles))
 
     # create initial population and evaluate them automatically
-    # TODO: make first parent the solution of the basic algorithm
-    t0 = time.time()
+    # t0 = time.time()
     population = []
     for i in range(pop_size):
         x = FiberToTargetAllocation(ind_tgt_near_poss, n_target, distances_dok, targets,
@@ -297,8 +339,16 @@ def main(file, t_start):
         # Figure out how many fiber/target are paired
         n_alloc = np.count_nonzero(population[0].chromosome >= 0)
         all_n_alloc[generation] = n_alloc
-        # print(n_alloc)
+        # Plot
+        plt.figure(1)
+        plt.subplot(221)
         plt.plot(generation, n_alloc, 'r+')
+        plt.subplot(222)
+        plt.plot(generation, population[0].fitness, 'bx')
+        plt.subplot(223)
+        plt.plot(generation, np.mean(population[0].distances[population[0].distances > 0]), 'g*')
+        plt.subplot(224)
+        plt.plot(generation, np.mean(population[0].priorities[population[0].priorities > 0]), 'bx')
 
         # Break now if we reached the max number of generations
         generation += 1
@@ -337,8 +387,8 @@ def main(file, t_start):
         s = int((100 - elite_pct) * pop_size / 100)
         m = int(mating_pct * pop_size / 100)
         for _ in range(s):
-            parent1 = random.choice(population[:m])
-            parent2 = random.choice(population[:m])
+            parent1 = rng.choice(population[:m])
+            parent2 = rng.choice(population[:m])
             offspring = parent1.mate(parent2)
             next_generation.append(offspring)
 
@@ -347,7 +397,17 @@ def main(file, t_start):
 
         population = next_generation
 
-    plt.title(f"pop_size={pop_size}, max_gen={max_generation}")
+    plt.subplot(221)
+    plt.title(f"Number of allocations")
+    plt.subplot(222)
+    plt.title(f"Total fitness")
+    plt.subplot(223)
+    plt.title(f"Average distance per target")
+    plt.subplot(224)
+    plt.title(f"Average priority per target")
+    # compute typical priority score for targets that can be reached
+    ref_priorities = targets[n_poss > 0]['priority'] * targets[n_poss > 0]['surveypriority']
+    plt.plot([0, generation], [np.mean(ref_priorities), np.mean(ref_priorities)], 'r')
     plt.show()
 
     return n_alloc
