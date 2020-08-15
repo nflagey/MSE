@@ -19,6 +19,7 @@ from scipy.sparse import lil_matrix, coo_matrix
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
 from matplotlib.collections import PatchCollection
+import random
 
 # Global variables
 plate_scale = 106.7e-3  # microns per arcsec
@@ -27,6 +28,13 @@ bigR = 7.77 / plate_scale  # circumradius
 smallR = np.sqrt(3) / 2 * bigR  # inradius
 
 score_none = 666.  # distance for unallocated fiber's score
+
+# GA parameters
+init_pop_size = 20  # size of initial population
+elite_pct = 25.  # percent of best parents to keep for next generation
+mating_pct = 50.  # percent of best parents allowed to mate
+mutation_pct = 5.  # percent of genes that mutate after crossover
+max_generation = 10  # maximum number of generations
 
 
 class MseFibAlloc(object):
