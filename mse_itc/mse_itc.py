@@ -353,12 +353,12 @@ class MseSpectrum:
 
         # Load IE curves from file (dictionary of dictionaries of dictionaries ...)
         ie_wav = np.array([360., 370., 400., 445., 551., 658., 806., 1000., 1214., 1477., 1784.])
-        ie_for_itc = np.load(here_path + '/THROUGHPUT/no_segments_injeff_curve_for_itc_all.npy', allow_pickle=True).flat[0]
+        fiber = self.spectro + "{:.2f}".format(self.fibdiam)
+        ie_for_itc = np.load(here_path + '/THROUGHPUT/no_segments_injeff_curve_for_itc_'
+                             + fiber + '_' + self.src_type + '.npy', allow_pickle=True).flat[0]
         # ie_avg_all['iq0.45']['ZD30']['LR1.00']
 
         # Selecting correct curves for this observation
-        # Fiber diameter & spectro
-        specfib_str = self.spectro + "{:.2f}".format(self.fibdiam)
         # ZD/Airmass
         zd_airmass = {1.0: '00', 1.2: '30', 1.5: '50', 2.0: '60'}
         zd_str = "ZD" + zd_airmass[self.airmass]
@@ -368,7 +368,7 @@ class MseSpectrum:
         # isolate IE curves of interest
         ie_itc = {}
         for iq in iqs:
-            ie_itc[iq] = ie_for_itc[iq][zd_str][specfib_str]
+            ie_itc[iq] = ie_for_itc[iq][zd_str][fiber]
 
         # Interpolate at desired IQ
         ie_coarse = [np.interp(self.seeing, iqvals, [ie_itc[iq][w] for iq in iqs]) for w in range(len(ie_wav))]
