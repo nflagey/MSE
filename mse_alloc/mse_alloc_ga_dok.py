@@ -12,9 +12,9 @@ from astropy.table import Table, Column, vstack
 from astropy import wcs
 import time
 from scipy.spatial import cKDTree
+import random
 import matplotlib.pyplot as plt
 from numpy.random import default_rng
-import copy
 
 # Random number generator
 rng = default_rng()
@@ -43,10 +43,8 @@ max_time = 600  # maximum time for the whole process
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 
 class FiberToTargetAllocation(object):
-    def __init__(self, ind_tgt_near_poss, ind_poss_near_tgt, n_targets, distances_dok, targets,
-                 first_gen=False, distances_coo=None):
+    def __init__(self, ind_tgt_near_poss, n_targets, distances_dok, targets, first_gen=False, distances_coo=None):
         self.ind_tgt_near_poss = ind_tgt_near_poss
-        self.ind_poss_near_tgt = ind_poss_near_tgt
         self.n_targets = n_targets
         self.distances_dok = distances_dok
         self.distances_coo = distances_coo
@@ -66,85 +64,49 @@ class FiberToTargetAllocation(object):
             chromosome = np.zeros(len(self.ind_tgt_near_poss), dtype=np.int32) - 1  # faster than list comprehension
 
             # TODO: try to reproduce basic algorithm here
-            # need to have a working copy of distances_coo and distances_dok
-            dist_coo_wip = copy.copy(self.distances_coo)
-            dist_dok_wip = copy.copy(self.distances_dok)
-            n_targets_wip = copy.copy(self.n_targets)
-            ind_poss_near_tgt_wip = copy.copy(self.ind_poss_near_tgt)
-            ind_tgt_near_poss_wip = copy.copy(self.ind_tgt_near_poss)
             # pick up a random order
-            order = np.arange(len(self.ind_tgt_near_poss))
-            rng.shuffle(order)
-            # go through the fibers in that order
-            for i in order:
-                # are there still any targets within reach of that fiber?
-                if len(ind_tgt_near_poss_wip[i]) > 0:
-                    # select correct fiber
-                    column = dist_coo_wip.col == i
-                    # find all targets that can be reached
-                    ind_targets = ind_tgt_near_poss_wip[i]
-
-                    # get their distances normalized by priority scores
-                    prio_scores = self.targets[ind_targets]['priority'] * self.targets[ind_targets]['surveypriority']
-                    if len(dist_coo_wip.data[column]) != len(prio_scores):
-                        print('hello')
-                    norm_dist = dist_coo_wip.data[column] / prio_scores
-
-                    # find best target
-                    chromosome[i] = ind_targets[np.argmin(norm_dist)]
-
-                    # find all positioners that could reach this target
-                    ind_poss = ind_poss_near_tgt_wip[chromosome[i]]
-
-                    # "nullify" that row and column from distance/ind_tgt_near_poss matrices
-                    for p in ind_poss:
-                        del dist_dok_wip[(chromosome[i], p)]
-                    dist_coo_wip = dist_dok_wip.tocoo()
-
-                    # [ind_tgt_near_poss_wip[p].remove(chromosome[i]) for p in ind_poss]
-                    for p in ind_poss:
-                        if chromosome[i] not in ind_tgt_near_poss_wip[p]:
-                            print('hello')
-                        ind_tgt_near_poss_wip[p].remove(chromosome[i])
-
+            # go through the fibers
+            # pick the closest target (or shortest distance/priority)
+            # "nullify" that row and column from distance/ind_tgt_near_poss matrices
             # continue until all possible are done
+            # order = np.random.choice(replace=False)
 
 
 
-            # if self.first_gen:
-            #     # allocate targets to their nearest fibers
-            #     # chromosome = np.argmin(self.distances_arr, axis=0)  # very slow with dense array
-            #     for i, n in enumerate(self.n_targets):
-            #         if n > 0:
-            #             column = self.distances_coo.col == i
-            #             chromosome[i] = self.distances_coo.row[column][np.argmin(self.distances_coo.data[column])]
-            # else:
-            #     # allocate targets that are the only ones a fiber can reach
-            #     chromosome[self.n_targets == 1] = self.ind_tgt_near_poss[self.n_targets == 1][0]
-            #     # chose randomly for the fibers that can reach more than one target
-            #     a = list(map(lambda x: rng.choice(x), self.ind_tgt_near_poss[self.n_targets > 1]))
-            #     chromosome[self.n_targets > 1] = a
+            if self.first_gen:
+                # allocate targets to their nearest fibers
+                # chromosome = np.argmin(self.distances_arr, axis=0)  # very slow with dense array
+                for i, n in enumerate(self.n_targets):
+                    if n > 0:
+                        column = self.distances_coo.col == i
+                        chromosome[i] = self.distances_coo.row[column][np.argmin(self.distances_coo.data[column])]
+            else:
+                # allocate targets that are the only ones a fiber can reach
+                chromosome[self.n_targets == 1] = self.ind_tgt_near_poss[self.n_targets == 1][0]
+                # chose randomly for the fibers that can reach more than one target
+                a = list(map(lambda x: rng.choice(x), self.ind_tgt_near_poss[self.n_targets > 1]))
+                chromosome[self.n_targets > 1] = a
 
             # Take care of duplicates: remove all but one fiber in those cases
-            # uniq, counts = np.unique(chromosome, return_counts=True)
-            # for u, c in zip(uniq, counts):
-            #     # is that target allocated more than once?
-            #     if c > 1 and u != -1:
-            #         # find all fibers allocated to that target
-            #         ind_dup = np.ravel(np.argwhere(chromosome == u))
-            #         # put all to -1
-            #         chromosome[ind_dup] = -1
-            #         # randomly chose one to be back to u
-            #         chromosome[rng.choice(ind_dup)] = u
-            #
-            #         # all solutions below are slower:
-            #         # pick all but one with random.sample: 1400ms
-            #         # chromosome[random.sample(list(ind_dup), c-1)] = np.nan
-            #         # pick all but one with np.random.choice: 2000ms
-            #         # chromosome[np.random.choice(ind_dup, size=c-1, replace=False)] = np.nan
-            #         # np.random.shuffle: 1200ms
-            #         # np.random.shuffle(ind_dup)
-            #         # chromosome[ind_dup[:-1]] = np.nan
+            uniq, counts = np.unique(chromosome, return_counts=True)
+            for u, c in zip(uniq, counts):
+                # is that target allocated more than once?
+                if c > 1 and u != -1:
+                    # find all fibers allocated to that target
+                    ind_dup = np.ravel(np.argwhere(chromosome == u))
+                    # put all to -1
+                    chromosome[ind_dup] = -1
+                    # randomly chose one to be back to u
+                    chromosome[rng.choice(ind_dup)] = u
+
+                    # all solutions below are slower:
+                    # pick all but one with random.sample: 1400ms
+                    # chromosome[random.sample(list(ind_dup), c-1)] = np.nan
+                    # pick all but one with np.random.choice: 2000ms
+                    # chromosome[np.random.choice(ind_dup, size=c-1, replace=False)] = np.nan
+                    # np.random.shuffle: 1200ms
+                    # np.random.shuffle(ind_dup)
+                    # chromosome[ind_dup[:-1]] = np.nan
 
             self._chromosome = chromosome
         return self._chromosome
@@ -309,9 +271,15 @@ def compute_distances(targets, poss):
     # get nearby targets for each fiber --> this returns a list of lists (super fast!)
     ind_target_near_poss = np.asarray(kdt_poss.query_ball_tree(kdt_target, patrol, p=2))
     n_target = np.array([len(ind_target_near_poss[i]) for i in range(len(poss))])
+    # remove fibers that cannot reach any target
+    # ind_target_near_poss = ind_target_near_poss[n_target > 0] # Using -1 in the chromosome instead
+
     # get nearby fibers for each target
     ind_poss_near_target = np.asarray(kdt_target.query_ball_tree(kdt_poss, patrol, p=2))
     n_poss = np.array([len(ind_poss_near_target[i]) for i in range(len(targets))])
+    # remove targets that cannot be reached by any fiber
+    # ind_poss_near_target = ind_poss_near_target[n_poss > 0] # Using -1 in the chromosome instead
+
     # Compute distances and put everything in sparse DoK matrix
     dist_target_dok = kdt_target.sparse_distance_matrix(kdt_poss, patrol, p=2.)
 
@@ -347,7 +315,7 @@ def main(file, t_start):
     # t0 = time.time()
     population = []
     for i in range(pop_size):
-        x = FiberToTargetAllocation(ind_tgt_near_poss, ind_poss_near_tgt, n_target, distances_dok, targets,
+        x = FiberToTargetAllocation(ind_tgt_near_poss, n_target, distances_dok, targets,
                                     first_gen=True, distances_coo=distances_coo)
         population.append(x)
     # at this stage the chromosomes have not been generated, we only created instances of the class
