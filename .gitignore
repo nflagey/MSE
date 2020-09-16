@@ -11,3 +11,7 @@
 /mse_alloc/TARGETS/kids_dr4_171ra190_23.0r24.5.01Apr2020.fits
 /mse_alloc/TARGETS/KiDS_for_LBG.fits
 /mse_injeff/results/
+mse_itc/data_fibsize/fibsize_snrcomp_LR_extended.pkl
+mse_itc/data_fibsize/fibsize_snrcomp_LR.pkl
+mse_itc/data_fibsize/fibsize_snrcomp_HR.pkl
+mse_itc/data_fibsize/fibsize_snrcomp_MR.pkl
