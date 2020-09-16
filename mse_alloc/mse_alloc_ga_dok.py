@@ -63,7 +63,7 @@ class FiberToTargetAllocation(object):
         if getattr(self, '_chromosome', None) is None:
             chromosome = np.zeros(len(self.ind_tgt_near_poss), dtype=np.int32) - 1  # faster than list comprehension
 
-            # TODO: try to reproduce basic algorithm here
+            # TODO: try to reproduce basic algorithm here as the firs generation?
             # pick up a random order
             # go through the fibers
             # pick the closest target (or shortest distance/priority)
@@ -399,12 +399,16 @@ def main(file, t_start):
 
     plt.subplot(221)
     plt.title(f"Number of allocations")
+    plt.xlabel("Number of generations")
     plt.subplot(222)
     plt.title(f"Total fitness")
+    plt.xlabel("Number of generations")
     plt.subplot(223)
     plt.title(f"Average distance per target")
+    plt.xlabel("Number of generations")
     plt.subplot(224)
     plt.title(f"Average priority per target")
+    plt.xlabel("Number of generations")
     # compute typical priority score for targets that can be reached
     ref_priorities = targets[n_poss > 0]['priority'] * targets[n_poss > 0]['surveypriority']
     plt.plot([0, generation], [np.mean(ref_priorities), np.mean(ref_priorities)], 'r')
