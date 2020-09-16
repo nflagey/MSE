@@ -6,7 +6,7 @@ __email__ = "flagey@cfht.hawaii.edu"
 __status__ = "Development"
 
 # Imports
-from mse_itc.mse_fibsize import *
+from mse_fibsize import *
 import numpy as np
 
 # Spectrograph and fiber sizes to consider
