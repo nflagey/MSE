@@ -25,8 +25,8 @@ zd_vals = list(ie[iq_vals[0]].keys())
 zd_vals = zd_vals[0:3]
 
 # Enter below the code you want to execute
-# comp_snr(iq_vals=iq_vals, zd_vals=zd_vals, fibers=fibers, src_type=src_type)
+comp_snr(iq_vals=iq_vals, zd_vals=zd_vals, fibers=fibers, src_type=src_type)
 # plot_snr_ratio_all(iq_vals=iq_vals, zd_vals=zd_vals, fibers=fibers, src_type=src_type)
-plot_snr_ratio_iq(iq_vals=iq_vals, zd_vals=zd_vals, fibers=fibers, src_type=src_type)
+# plot_snr_ratio_iq(iq_vals=iq_vals, zd_vals=zd_vals, fibers=fibers, src_type=src_type)
 
 print("Done!")
